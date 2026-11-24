@@ -58,7 +58,7 @@ struct BoardHash {
     }
 };
 
-int compute_heuristic(const Board& b, int h_id){
+int comp_heur(const Board& b, int h_id){
     if (h_id == 0) return 0;
 
     int R = b.R, C = b.C;
@@ -75,7 +75,7 @@ int compute_heuristic(const Board& b, int h_id){
 
     if (h_id == 1) return manhattan;
 
-    int linear_conflict = 0;
+    int conf_res = 0;
 
     for (int r = 0; r < R; ++r) {
         for (int c1 = 0; c1 < C; ++c1) {
@@ -84,7 +84,7 @@ int compute_heuristic(const Board& b, int h_id){
             for (int c2 = c1 + 1; c2 < C; ++c2) {
                 uint8_t v2 = b.get(r * C + c2);
                 if (v2 == 0 || (v2 - 1) / C != r) continue;
-                if (v1 > v2) linear_conflict += 2;
+                if (v1 > v2) conf_res += 2;
             }
         }
     }
@@ -96,12 +96,12 @@ int compute_heuristic(const Board& b, int h_id){
             for (int r2 = r1 + 1; r2 < R; ++r2) {
                 uint8_t v2 = b.get(r2 * C + c);
                 if (v2 == 0 || (v2 - 1) % C != c) continue;
-                if (v1 > v2) linear_conflict += 2;
+                if (v1 > v2) conf_res += 2;
             }
         }
     }
     
-    return manhattan + linear_conflict;
+    return manhattan + conf_res;
 }
 
 bool apply_move(const Board& curr, char move, Board& next){
@@ -125,7 +125,7 @@ bool apply_move(const Board& curr, char move, Board& next){
     return true;
 }
 
-char opposite_move(char m){
+char opp_move(char m){
     if (m == 'L') return 'R';
     if (m == 'R') return 'L';
     if (m == 'U') return 'D';
@@ -133,7 +133,7 @@ char opposite_move(char m){
     return 0;
 }
 
-bool is_solvable(const Board& b){
+bool solvable(const Board& b){
     int inv = 0;
     int N = b.R * b.C;
     for (int i = 0; i<N; ++i){
@@ -193,7 +193,7 @@ std::string solve_bfs(const Board& start, const Board& goal, const std::string& 
 
         std::string dirs = get_move_order(order);
         for (char d : dirs){
-            if (!curr.path.empty() && d == opposite_move(curr.path.back())) continue;
+            if (!curr.path.empty() && d == opp_move(curr.path.back())) continue;
             Board next;
             if(apply_move(curr.b, d, next)){
                 if (next == goal){
@@ -234,7 +234,7 @@ struct Frame { Board b; std::string path; };
         std::string dirs = get_move_order(order);
         for (int i = (int)dirs.size() - 1; i >= 0; --i) {
             char d = dirs[i];
-            if (!curr.path.empty() && d == opposite_move(curr.path.back())) continue;
+            if (!curr.path.empty() && d == opp_move(curr.path.back())) continue;
             Board next;
             if (apply_move(curr.b, d, next)) {
                 int next_d = d_len + 1;
@@ -250,7 +250,7 @@ struct Frame { Board b; std::string path; };
     return "UNSOLVED";
 }
 
-bool  dls_recursive(const Board& curr, const Board& goal, int limit, std::string& path, const std::string& order, std::unordered_map<Board, int, BoardHash>& visited, Metrics& m){
+bool  dfs_recur(const Board& curr, const Board& goal, int limit, std::string& path, const std::string& order, std::unordered_map<Board, int, BoardHash>& visited, Metrics& m){
     m.processed_states++;
     int depth = path.size();
     if (depth > m.max_recursion_depth) m.max_recursion_depth = depth;
@@ -261,14 +261,14 @@ bool  dls_recursive(const Board& curr, const Board& goal, int limit, std::string
     std::string dirs = get_move_order(order);
 
     for (char d : dirs){
-        if (!path.empty() && d == opposite_move(path.back())) continue;
+        if (!path.empty() && d == opp_move(path.back())) continue;
         Board next;
         if (apply_move(curr, d, next)) {
             auto it = visited.find(next);
             if (it == visited.end() || depth + 1 < it-> second){
                 m.visited_states++;
                 path.push_back(d);
-                if (dls_recursive(next, goal, limit, path, order, visited, m)) return true;
+                if (dfs_recur(next, goal, limit, path, order, visited, m)) return true;
                 path.pop_back();
             }
         }
@@ -281,7 +281,7 @@ std::string solve_idfs(const Board& start, const Board& goal, const std::string&
         string path = "";
         unordered_map<Board, int, BoardHash> visited;
         m.visited_states++;
-        if (dls_recursive(start, goal, limit, path, order, visited, m)) {
+        if (dfs_recur(start, goal, limit, path, order, visited, m)) {
             return path;
         }
     }
@@ -303,7 +303,7 @@ string solve_informed(const Board& start, const Board& goal, int h_id, bool is_a
     priority_queue<PQNode, vector<PQNode>, greater<PQNode>> pq;
     unordered_map<Board, int, BoardHash> best_g;
 
-    int h0 = compute_heuristic(start, h_id);
+    int h0 = comp_heur(start, h_id);
     pq.push({start, 0, h0, ""});
     best_g[start] = 0;
     m.visited_states = 1;
@@ -319,7 +319,7 @@ string solve_informed(const Board& start, const Board& goal, int h_id, bool is_a
         if (curr.b == goal) return curr.path;
 
         for (char d : {'L', 'R', 'U', 'D'}) {
-            if (!curr.path.empty() && d == opposite_move(curr.path.back())) continue;
+            if (!curr.path.empty() && d == opp_move(curr.path.back())) continue;
             Board next;
             if (apply_move(curr.b, d, next)) {
                 int ng = curr.g + 1;
@@ -327,7 +327,7 @@ string solve_informed(const Board& start, const Board& goal, int h_id, bool is_a
                 if (it == best_g.end() || (is_astar && ng < it->second)) {
                     best_g[next] = ng;
                     m.visited_states++;
-                    int h = compute_heuristic(next, h_id);
+                    int h = comp_heur(next, h_id);
                     int f = is_astar ? (ng + h) : h;
                     pq.push({next, ng, f, curr.path + d});
                 }
@@ -355,7 +355,7 @@ string solve_sma(const Board& start, const Board& goal, int h_id, size_t max_nod
     unordered_map<Board, set<SMANode>::iterator, BoardHash> lookup;
     uint64_t next_id = 0;
 
-    int h0 = compute_heuristic(start, h_id);
+    int h0 = comp_heur(start, h_id);
     auto res = open_set.insert({start, 0, h0, "", next_id++});
     lookup[start] = res.first;
     m.visited_states = 1;
@@ -371,11 +371,11 @@ string solve_sma(const Board& start, const Board& goal, int h_id, size_t max_nod
         if (curr.b == goal) return curr.path;
 
         for (char d : {'L', 'R', 'U', 'D'}) {
-            if (!curr.path.empty() && d == opposite_move(curr.path.back())) continue;
+            if (!curr.path.empty() && d == opp_move(curr.path.back())) continue;
             Board next;
             if (apply_move(curr.b, d, next)) {
                 int ng = curr.g + 1;
-                int nf = max(curr.f, ng + compute_heuristic(next, h_id));
+                int nf = max(curr.f, ng + comp_heur(next, h_id));
 
                 auto it = lookup.find(next);
                 if (it != lookup.end()) {
@@ -443,7 +443,7 @@ int main(int argc, char* argv[]){
     auto t0 = chrono::high_resolution_clock::now();
 
     string solution = "UNSOLVED";
-    if (!is_solvable(start)) {
+    if (!solvable(start)) {
         solution = "UNSOLVED";
     } else if (strategy == "bfs") {
         solution = solve_bfs(start, goal, param, metrics);
