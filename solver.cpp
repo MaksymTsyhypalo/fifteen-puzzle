@@ -346,7 +346,7 @@ string solve_sma(const Board& start, const Board& goal, int h_id, size_t max_nod
         uint64_t id;
         bool operator<(const SMANode& o) const {
             if (f != o.f) return f < o.f;
-            if (g != o.g) return g > o.g; // Prefer deeper on tie
+            if (g != o.g) return g > o.g;
             return id < o.id;
         }
     };
@@ -375,7 +375,7 @@ string solve_sma(const Board& start, const Board& goal, int h_id, size_t max_nod
             Board next;
             if (apply_move(curr.b, d, next)) {
                 int ng = curr.g + 1;
-                int nf = max(curr.f, ng + compute_heuristic(next, h_id)); // Pathmax consistency
+                int nf = max(curr.f, ng + compute_heuristic(next, h_id));
 
                 auto it = lookup.find(next);
                 if (it != lookup.end()) {
